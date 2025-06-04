@@ -1,0 +1,73 @@
+test in apptainer shell 
+
+module load apptainer 
+module load nextflow 
+module load samtools
+
+cd /project/gblab/users/yn9w/Projects/E3999_LongReadSequencing/E3999_PacBio_LR_YN/test/nf-core-pacbioaaml
+
+apptainer shell ./containers/E3999_PacBio_LR_YN_BuildContainer.sif 
+
+
+cd ./data/14289_apptainer_shell
+
+isoseq cluster2 ../14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam ./14289_apptainer_shell_clustered.bam --use-qvs
+
+pbmm2 align ../../reference_genome/GRCh38.p13.genome.fa  ./14289_apptainer_shell_clustered.bam ./14289_apptainer_shell_aligned.bam --preset ISOSEQ --sort -j 40 --log-level INFO
+
+isoseq collapse ./14289_apptainer_shell_aligned.bam ./14289_apptainer_shell_collapsed.gff
+
+exit from the apptainer 
+
+cd /project/gblab/users/yn9w/Projects/E3999_LongReadSequencing/E3999_PacBio_LR_YN/test/nf-core-pacbioaaml/data/14289_apptainer_shell
+
+apptainer shell ../../containers/E3999_PacBio_LR_YN_BuildContainer_sqanti_cupcake.sif
+
+
+## Sqanti 
+/opt/conda/envs/SQANTI3.env/bin/python /opt/SQANTI3/sqanti3_qc.py  \
+./14289_apptainer_shell_collapsed.gff \
+../../reference_genome/gencode.v42.annotation.gtf \
+../../reference_genome/GRCh38.p13.genome.fa \
+--skipORF \
+-o 14289_apptainer_shell_sqanti \
+-d ./ \
+--fl_count ./14289_apptainer_shell_collapsed.abundance.txt 
+
+
+ ## Filtering SQANTI outputs
+    /opt/conda/envs/SQANTI3.env/bin/python ../../modules/local/sqanti_qc_filter/03_filter_sqanti.py \
+        --sqanti_classification 14289_apptainer_shell_sqanti_classification.txt \
+        --sqanti_corrected_fasta 14289_apptainer_shell_sqanti_corrected.fasta \
+        --sqanti_corrected_gtf 14289_apptainer_shell_sqanti_corrected.gtf \
+        --protein_coding_genes ../../reference_db_for_analysis/protein_coding_genes.txt \
+        --ensg_gene ../../reference_db_for_analysis/ensg_gene.tsv \
+        --filter_protein_coding yes \
+        --filter_intra_polyA yes \
+        --filter_template_switching yes \
+        --percent_A_downstream_threshold 95 \
+        --structural_categories_level strict \
+        --minimum_illumina_coverage 3
+
+## Collapsing filtered isoforms
+    /opt/conda/envs/SQANTI3.env/bin/python ../../modules/local/sqanti_qc_filter/03_collapse_isoforms.py \
+        --name 14289_apptainer_shell_sqanti \
+        --sqanti_gtf filtered_14289_apptainer_shell_sqanti_corrected.gtf \
+        --sqanti_fasta filtered_14289_apptainer_shell_sqanti_corrected.fasta
+
+## Collapsing classification
+    /opt/conda/envs/SQANTI3.env/bin/python ../../modules/local/sqanti_qc_filter/03_collapse_classification.py \
+        --name 14289_apptainer_shell_sqanti \
+        --collapsed_fasta 14289_apptainer_shell_sqanti_corrected.5degfilter.fasta \
+        --classification filtered_14289_apptainer_shell_sqanti_classification.tsv
+
+
+## CPAT 
+cpat \
+   -x ./00_input_data/Human_Hexamer.tsv \
+   -d ./00_input_data/Human_logitModel.RData \
+   -g ./filtered_merged_aml_corrected.fasta \
+   --min-orf=50 \
+   --top-orf=50 \
+   -o merged_aml \
+   2> cpat.error

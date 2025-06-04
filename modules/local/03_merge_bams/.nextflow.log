@@ -1,0 +1,76 @@
+Apr-15 20:13:23.861 [main] DEBUG nextflow.cli.Launcher - $> nextflow run main.nf --input ./data/sample_metadata.csv
+Apr-15 20:13:23.927 [main] INFO  nextflow.cli.CmdRun - N E X T F L O W  ~  version 23.04.1
+Apr-15 20:13:23.943 [main] DEBUG nextflow.plugin.PluginsFacade - Setting up plugin manager > mode=prod; embedded=false; plugins-dir=/home/yn9w/.nextflow/plugins; core-plugins: nf-amazon@1.16.2,nf-azure@1.0.1,nf-codecommit@0.1.4,nf-console@1.0.5,nf-ga4gh@1.0.5,nf-google@1.7.3,nf-tower@1.5.12,nf-wave@0.8.2
+Apr-15 20:13:23.951 [main] INFO  org.pf4j.DefaultPluginStatusProvider - Enabled plugins: []
+Apr-15 20:13:23.951 [main] INFO  org.pf4j.DefaultPluginStatusProvider - Disabled plugins: []
+Apr-15 20:13:23.954 [main] INFO  org.pf4j.DefaultPluginManager - PF4J version 3.4.1 in 'deployment' mode
+Apr-15 20:13:23.962 [main] INFO  org.pf4j.AbstractPluginManager - No plugins
+Apr-15 20:13:24.020 [main] DEBUG nextflow.cli.CmdRun - Applied DSL=2 by global default
+Apr-15 20:13:24.024 [main] INFO  nextflow.cli.CmdRun - Launching `main.nf` [nostalgic_jepsen] DSL2 - revision: 9b3e569e55
+Apr-15 20:13:24.025 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins default=[]
+Apr-15 20:13:24.025 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins resolved requirement=[]
+Apr-15 20:13:24.035 [main] DEBUG nextflow.secret.LocalSecretsProvider - Secrets store: /home/yn9w/.nextflow/secrets/store.json
+Apr-15 20:13:24.040 [main] DEBUG nextflow.secret.SecretsLoader - Discovered secrets providers: [nextflow.secret.LocalSecretsProvider@4339baec] - activable => nextflow.secret.LocalSecretsProvider@4339baec
+Apr-15 20:13:24.091 [main] DEBUG nextflow.Session - Session UUID: cae6bd28-02b9-45c4-84f0-63dbddb6d910
+Apr-15 20:13:24.091 [main] DEBUG nextflow.Session - Run name: nostalgic_jepsen
+Apr-15 20:13:24.092 [main] DEBUG nextflow.Session - Executor pool size: 48
+Apr-15 20:13:24.102 [main] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'FileTransfer' minSize=10; maxSize=144; workQueue=LinkedBlockingQueue[10000]; allowCoreThreadTimeout=false
+Apr-15 20:13:24.118 [main] DEBUG nextflow.cli.CmdRun - 
+  Version: 23.04.1 build 5867
+  Created: 15-04-2023 07:31 UTC (03:31 EDT)
+  System: Linux 4.18.0-513.18.1.el8_9.x86_64
+  Runtime: Groovy 3.0.16 on OpenJDK 64-Bit Server VM 11.0.2+9
+  Encoding: UTF-8 (ANSI_X3.4-1968)
+  Process: 171678@udc-ba38-18 [10.153.1.8]
+  CPUs: 48 - Mem: 2 TB (1.9 TB) - Swap: 0 (0)
+Apr-15 20:13:24.136 [main] DEBUG nextflow.Session - Work-dir: /sfs/gpfs/tardis/project/gblab/users/yn9w/Projects/E3999_LongReadSequencing/E3999_PacBio_LR_YN/test/nf-core-pacbioaaml/modules/local/merge_bams/work [gpfs]
+Apr-15 20:13:24.137 [main] DEBUG nextflow.Session - Script base path does not exist or is not a directory: /sfs/gpfs/tardis/project/gblab/users/yn9w/Projects/E3999_LongReadSequencing/E3999_PacBio_LR_YN/test/nf-core-pacbioaaml/modules/local/merge_bams/bin
+Apr-15 20:13:24.160 [main] DEBUG nextflow.executor.ExecutorFactory - Extension executors providers=[GoogleLifeSciencesExecutor, AwsBatchExecutor, GoogleBatchExecutor]
+Apr-15 20:13:24.171 [main] DEBUG nextflow.Session - Observer factory: DefaultObserverFactory
+Apr-15 20:13:24.173 [main] DEBUG nextflow.Session - Observer factory: TowerFactory
+Apr-15 20:13:24.188 [main] DEBUG nextflow.cache.CacheFactory - Using Nextflow cache factory: nextflow.cache.DefaultCacheFactory
+Apr-15 20:13:24.197 [main] DEBUG nextflow.util.CustomThreadPool - Creating default thread pool > poolSize: 49; maxThreads: 1000
+Apr-15 20:13:24.259 [main] DEBUG nextflow.Session - Session start
+Apr-15 20:13:24.726 [main] DEBUG nextflow.script.ScriptRunner - > Launching execution
+Apr-15 20:13:24.742 [main] DEBUG nextflow.Session - Session aborted -- Cause: =============================================================================
+=                                WARNING                                    =
+= You are running this script using DSL2 syntax, however it does not        = 
+= contain any 'workflow' definition so there's nothing for Nextflow to run. =
+=                                                                           =
+= If this script was written using Nextflow DSL1 syntax, please add the     = 
+= setting 'nextflow.enable.dsl=1' to the nextflow.config file or use the    =
+= command-line option '-dsl1' when running the pipeline.                    =
+=                                                                           =
+= More details at this link: https://www.nextflow.io/docs/latest/dsl2.html  =
+=============================================================================
+
+Apr-15 20:13:24.757 [main] DEBUG nextflow.cli.Launcher - Operation aborted
+nextflow.exception.AbortOperationException: =============================================================================
+=                                WARNING                                    =
+= You are running this script using DSL2 syntax, however it does not        = 
+= contain any 'workflow' definition so there's nothing for Nextflow to run. =
+=                                                                           =
+= If this script was written using Nextflow DSL1 syntax, please add the     = 
+= setting 'nextflow.enable.dsl=1' to the nextflow.config file or use the    =
+= command-line option '-dsl1' when running the pipeline.                    =
+=                                                                           =
+= More details at this link: https://www.nextflow.io/docs/latest/dsl2.html  =
+=============================================================================
+
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:490)
+	at org.codehaus.groovy.reflection.CachedConstructor.invoke(CachedConstructor.java:72)
+	at org.codehaus.groovy.runtime.callsite.ConstructorSite$ConstructorSiteNoUnwrapNoCoerce.callConstructor(ConstructorSite.java:105)
+	at org.codehaus.groovy.runtime.callsite.CallSiteArray.defaultCallConstructor(CallSiteArray.java:59)
+	at org.codehaus.groovy.runtime.callsite.AbstractCallSite.callConstructor(AbstractCallSite.java:263)
+	at org.codehaus.groovy.runtime.callsite.AbstractCallSite.callConstructor(AbstractCallSite.java:277)
+	at nextflow.script.BaseScript.run0(BaseScript.groovy:176)
+	at nextflow.script.BaseScript.run(BaseScript.groovy:192)
+	at nextflow.script.ScriptParser.runScript(ScriptParser.groovy:229)
+	at nextflow.script.ScriptRunner.run(ScriptRunner.groovy:224)
+	at nextflow.script.ScriptRunner.execute(ScriptRunner.groovy:130)
+	at nextflow.cli.CmdRun.run(CmdRun.groovy:368)
+	at nextflow.cli.Launcher.run(Launcher.groovy:494)
+	at nextflow.cli.Launcher.main(Launcher.groovy:653)

@@ -1,0 +1,22 @@
+name: pbmerge_bams
+description: Merge multiple FLNC BAMs into a single BAM using pbmerge.
+keywords:
+  - pacbio
+  - bam
+  - merge
+  - long-read
+tools:
+  - pbmerge:
+      description: PacBio tool for merging multiple BAMs into one.
+      homepage: https://github.com/PacificBiosciences/pbtools
+      documentation: https://github.com/PacificBiosciences/pbtools
+input:
+  - bam_files:
+      type: List[File]
+      description: List of BAM files to merge
+      pattern: "*.bam"
+output:
+  - merged.bam:
+      type: File
+      description: Merged BAM output file
+      pattern: "merged.flnc.bam"

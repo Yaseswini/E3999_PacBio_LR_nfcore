@@ -1,0 +1,82 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+# Building a container w/ all the scripts #
+# Required packages 
+# - isoseq 
+# - minimap2 (pbmm2 align)
+# - sqanti
+# - cpat 
+# Use a base image from a reliable source like Ubuntu
+
+## Generate .sif from the .def file using apptainer : 
+## apptainer build E3999_PacBio_LR_YN_BuildContainer.sif E3999_PacBio_LR_YN_BuildContainer.def
+## To check if the modules are installed correctly (ex pbmm2) 
+##  apptainer exec E3999_PacBio_LR_YN_BuildContainer.sif pbmm2 --version
+
+
+%labels
+    Author: Yaseswini Neelamraju
+    Description: Container for PacBio long-read sequencing with IsoSeq3, pbmm2, minimap2, CPAT, and SQANTI3
+    Version: 1.0
+
+%environment
+    export CONDA_PREFIX=/opt/conda
+    export PATH=$CONDA_PREFIX/bin:$PATH
+    export PACBIO_HOME=/opt/pacbio
+    export PATH=$PACBIO_HOME/bin:$PATH
+
+%post
+
+    # Avoid tzdata interactive prompt
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Install system dependencies
+    apt-get update && apt-get install -y \
+        wget \
+        bzip2 \
+        ca-certificates \
+        curl \
+        git \
+        build-essential \
+        libglib2.0-0 \
+        libxext6 \
+        libsm6 \
+        libxrender1 \
+        python3 \
+        && apt-get clean
+
+    # Install Miniconda
+    MINICONDA_INSTALLER=Miniconda3-latest-Linux-x86_64.sh
+    wget https://repo.anaconda.com/miniconda/${MINICONDA_INSTALLER}
+    bash $MINICONDA_INSTALLER -b -p /opt/conda
+    rm $MINICONDA_INSTALLER
+    export PATH=/opt/conda/bin:$PATH
+
+    # Update Conda
+    conda update -y conda
+
+    # Create environment (optional) or install packages globally
+    echo "Installing bioinformatics tools..."
+    conda install -y -c bioconda isoseq3 pbmm2 minimap2 || echo "One or more tools failed to install." >> /install_errors.log
+
+    # Python packages
+    conda install -y -c conda-forge python=3.9 pandas=1.5.3 biopython numpy || echo "Python packages failed to install." >> /install_errors.log
+    conda install -y -c bioconda gtfparse || echo "Python packages failed to install." >> /install_errors.log
+
+    # List installed packages
+    conda list > /installed_packages.txt
+
+    # Record any issues
+    echo "Installation complete. Checking for any errors..."
+    if [ -f /install_errors.log ]; then
+        echo "Some packages failed to install:"
+        cat /install_errors.log
+    else
+        echo "All packages installed successfully."
+    fi
+
+%runscript
+    echo "Welcome to the PacBio Long-Read Pipeline Container"
+    echo "Installed tools include: isoseq3, pbmm2, minimap2, cpat, and sqanti3"
+    echo "To run tools, use: isoseq3 <args>, pbmm2 <args>, etc."

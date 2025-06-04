@@ -1,0 +1,193 @@
+## Nextflow structure : 
+
+Lets assume the metadata file is : 
+14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam,14289,AML
+NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam,NBM15,NBM
+14289_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam,14289,AML
+
+Your channel logic still results in this per line:
+
+tuple("14289", "AML", file("/base_bam_dir/14289_LRRseq...bc02...bam"))
+tuple("NBM15", "NBM", file("/base_bam_dir/NBM15_LRRseq...bc07...bam"))
+tuple("14289", "AML", file("/base_bam_dir/14289_LRRseq...bc04...bam"))
+
+
+Then after .groupTuple(): ; grouped_bams emits : 
+
+[
+    tuple("14289", ["AML", "AML"], [
+        file("/base_bam_dir/14289_LRRseq...bc02...bam"),
+        file("/base_bam_dir/14289_LRRseq...bc04...bam")
+    ]),
+    tuple("NBM15", ["NBM"], [
+        file("/base_bam_dir/NBM15_LRRseq...bc07...bam")
+    ])
+]
+
+Each emitted item from grouped_bams has:
+
+tuple(
+  String sample_id,
+  List<String> conditions,
+  List<Path> bam_files
+)
+
+So in this case:
+
+"14289" has 2 BAM files with both conditions "AML"
+"NBM15" has 1 BAM file with condition "NBM"
+
+
+## --- Next print_sample_bam_count --- ## 
+tuple(
+  sample_id,       // e.g., "14289"
+  conditions,      // e.g., ["AML", "AML"] or ["NBM"]
+  bam_files        // e.g., [file(...), file(...)] or [file(...)]
+)
+
+
+## --- Process merged bams ---- ## 
+grouped_bams:
+  ("14289", "AML", [
+     14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam,
+     14289_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam
+  ])
+  ("NBM15", "NBM", [
+    NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam
+  ])
+
+↓
+
+to_merge (bams.size() > 1):
+  ("14289", "AML", [
+    14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam,
+    14289_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam
+  ])
+
+original_bams (bams.size() == 1):
+  ("NBM15", "NBM", NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam)
+
+↓
+
+MERGE_BAMS:
+
+Input: ("14289", "AML", [bam_1, bam_2])
+Output: ("14289", "AML", "14289_merged.bam")
+
+↓
+
+Mix merged + original → _all_bams:
+
+("14289", "AML", "14289_merged.bam")
+("NBM15", "NBM", NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam)
+
+
+
+
+## =========================== ## 
+
+Starting metadata file ( params.input_metadata )
+Lines:
+1) 14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam,14289,AML
+2) NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam,NBM15,NBM
+3) 14289_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam,14289,AML
+
+
+1. After parsing metadata and grouping (grouped_bams):
+grouped_bams = Channel emitting:
+
+( "14289", "AML", [
+    file("/base_bam_dir/14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam"),
+    file("/base_bam_dir/14289_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam")
+])
+
+( "NBM15", "NBM", [
+    file("/base_bam_dir/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam")
+])
+
+
+2.Split into to_merge (samples with >1 BAM) and original_bams (samples with 1 BAM):
+to_merge:
+( "14289", "AML", [
+    file("/base_bam_dir/14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam"),
+    file("/base_bam_dir/14289_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam")
+])
+original_bams:
+( "NBM15", "NBM", file("/base_bam_dir/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam") )
+
+
+3. MERGE_BAMS input and output:
+Input tuples to MERGE_BAMS:
+( "14289", "AML", [
+    file("/base_bam_dir/14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam"),
+    file("/base_bam_dir/14289_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam")
+])
+Output tuples from MERGE_BAMS:
+( "14289", "AML", file("14289_merged.bam") )
+
+
+4. Combine merged and original to form _all_bams:
+_all_bams = Channel emitting:
+( "14289", "AML", file("14289_merged.bam") )
+( "NBM15", "NBM", file("/base_bam_dir/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam") )
+
+5. If params.use_pbmerge == true — remap sample_id and run PBMERGE_BAMS:
+Input to PBMERGE_BAMS after remapping:
+( "merged_files", "AML", file("14289_merged.bam") )
+( "merged_files", "NBM", file("/base_bam_dir/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam") )
+
+
+( "merged_files", "all_conditions", [
+    file("14289_merged.bam"),
+    file("/base_bam_dir/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam")
+], path("01_Iso-Seq/merge") )
+
+Output of PBMERGE_BAMS:
+( "merged_files", "all_conditions", file("01_Iso-Seq/merge/merged.flnc.bam") )
+
+6. If params.use_pbmerge == false — just assign _all_bams to all_bams:
+all_bams = _all_bams
+
+( "14289", "AML", file("14289_merged.bam") )
+( "NBM15", "NBM", file("/base_bam_dir/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam") )
+
+
+
+7. Finally, CHECK_AND_MOVE_BAM(all_bams) input/output:
+Input tuples to CHECK_AND_MOVE_BAM:
+
+If use_pbmerge == true:
+
+( "merged_files", "all_conditions", file("01_Iso-Seq/merge/merged.flnc.bam") )
+
+If use_pbmerge == false:
+
+( "14289", "AML", file("14289_merged.bam") )
+( "NBM15", "NBM", file("/base_bam_dir/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam") )
+
+
+8. isoseq cluster 
+
+
+
+9. pbmm2 align 
+
+
+
+10. isoseq collapse 
+
+
+
+11. 
+
+
+
+
+
+
+
+
+
+
+
+

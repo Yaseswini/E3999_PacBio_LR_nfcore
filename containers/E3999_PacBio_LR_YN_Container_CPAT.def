@@ -1,0 +1,42 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+%labels
+    Author YourName
+    Version v1.0
+    Tool CPAT
+
+%environment
+    export PATH=/root/.local/bin:$PATH
+    export PYTHONPATH=/root/.local/lib/python3.8/site-packages:$PYTHONPATH
+    export LC_ALL=C
+    export LANG=C
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Install system dependencies
+    apt-get update && apt-get install -y \
+        python3 python3-pip python3-dev \
+        build-essential wget curl ca-certificates \
+        r-base \
+        && apt-get clean
+
+    # Upgrade pip, setuptools, and wheel
+    python3 -m pip install --upgrade pip setuptools wheel
+
+    # Install CPAT with --user to /root/.local
+    python3 -m pip install --user CPAT
+
+    # Check CPAT install
+    /root/.local/bin/cpat --help || echo "CPAT installation failed" >> /install_errors.log
+
+    # Check Rscript 
+    Rscript --version || echo "Rscript installation failed" >> /install_errors.log
+
+%test
+    cpat --help
+    Rscript --version
+
+%runscript
+    exec cpat "$@"

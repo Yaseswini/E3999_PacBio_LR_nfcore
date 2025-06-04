@@ -1,0 +1,139 @@
+# 📊 Workflow Channel Summary for nf-core PacBio Pipeline
+
+## 📥 Input Metadata
+CSV:
+```csv
+bam_file,Sample_id,condition
+14289_LRRseq.IsoSeqX_bc02_5p--IsoSeqX_3p.flnc.bam,14289,AML
+NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam,NBM15,NBM
+```
+
+### ➡ After Parsing
+```groovy
+Channel[ 
+  tuple("14289", "AML", file("/base_bam_dir/14289_LRRseq...bam")),
+  tuple("NBM15", "NBM", file("/base_bam_dir/NBM15_LRRseq...bam"))
+]
+```
+**Type**: `Channel[ tuple(string sample_id, string condition, file bam) ]`
+
+---
+
+## 📦 grouped_bams (after .groupTuple())
+```groovy
+Channel[
+  tuple("14289", "AML", [ file(...) ]),
+  tuple("NBM15", "NBM", [ file(...) ])
+]
+```
+**Type**: `Channel[ tuple(string, string, List[file]) ]`
+
+---
+
+## 📊 PRINT_SAMPLE_BAM_COUNT
+Input:
+```groovy
+tuple(sample_id, condition, List[file])
+```
+Output:
+```groovy
+tuple(sample_id, condition, file sample_count_txt)
+```
+
+---
+
+## 🔀 Splitting BAMs
+- All samples have 1 BAM → sent to `original_bams`:
+```groovy
+Channel[
+  tuple("14289", "AML", file(...)),
+  tuple("NBM15", "NBM", file(...))
+]
+```
+
+## 🔗 _all_bams (merged + originals)
+```groovy
+Channel[
+  tuple("14289", "AML", file(...)),
+  tuple("NBM15", "NBM", file(...))
+]
+```
+
+---
+
+## 🔁 If `params.use_pbmerge == true`:
+
+### 🔧 Input to PBMERGE_BAMS
+```groovy
+Channel[
+  tuple("pbmerged_bams", "all_conditions", [file1, file2])
+]
+```
+
+### ✅ Output:
+```groovy
+Channel[
+  tuple("pbmerged_bams", "all_conditions", merged_bam_file, pbi_file)
+]
+```
+Only **1 output tuple**, representing the merged BAM.
+
+---
+
+## 🚫 If `params.use_pbmerge == false`:
+
+```groovy
+Channel[
+  tuple("14289", "AML", file(...), file(...pbi)),
+  tuple("NBM15", "NBM", file(...), file(...pbi))
+]
+```
+
+---
+
+## ✅ Final Output: `all_bams`
+Type:
+```groovy
+Channel[ tuple(string sample_id, string condition, file bam, file pbi) ]
+```
+
+Contents (depending on `use_pbmerge`):
+
+**If false:**
+```groovy
+Sample: 14289, Condition: AML, BAM: ..., PBI: ...
+Sample: NBM15, Condition: NBM, BAM: ..., PBI: ...
+```
+
+**If true:**
+```groovy
+Sample: pbmerged_bams, Condition: all_conditions, BAM: ..., PBI: ...
+```
+
+---
+
+## ✅ Visual Summary Table
+
+| Step                          | Input Type                                          | Output Type                                         |
+|-------------------------------|-----------------------------------------------------|-----------------------------------------------------|
+| sample_metadata (CSV)        | CSV                                                 | Channel[ tuple(string, string, file) ]              |
+| groupTuple                   | tuple(sample_id, condition) → List[BAMs]           | Channel[ tuple(string, string, List[file]) ]        |
+| PRINT_SAMPLE_BAM_COUNT       | tuple(string, string, List[file])                  | Channel[ tuple(string, string, file) ]              |
+| MERGE_BAMS                   | (only if >1 BAM)                                   | Channel[ tuple(string, string, file) ]              |
+| original_bams                | tuple(string, string, file)                        | Channel[ tuple(string, string, file) ]              |
+| _all_bams                    | merged + original                                  | Channel[ tuple(string, string, file) ]              |
+| PBMERGE_BAMS (if enabled)    | tuple("pbmerged_bams", "all_conditions", List[file]) | Channel[ tuple(string, string, file, file) ]      |
+| all_bams                     | Final unified output                               | Channel[ tuple(string, string, file, file) ]        |
+
+
+
+
+
+
+
+
+all_bams : 
+
+[FINAL OUTPUT] Sample: pbmerged_bams, Condition: all_conditions
+  BAM: /sfs/gpfs/tardis/project/gblab/users/yn9w/Projects/E3999_LongReadSequencing/E3999_PacBio_LR_YN/test/nf-core-pacbioaaml/work/50/31c2178f9a412616bba79657267e2b/pbmerged_bams_pbmerged.flnc.bam
+  PBI: /sfs/gpfs/tardis/project/gblab/users/yn9w/Projects/E3999_LongReadSequencing/E3999_PacBio_LR_YN/test/nf-core-pacbioaaml/work/50/31c2178f9a412616bba79657267e2b/pbmerged_bams_pbmerged.flnc.bam.pbi

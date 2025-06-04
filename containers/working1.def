@@ -1,0 +1,104 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+# Building a container w/ all the scripts #
+# Required packages 
+# - isoseq 
+# - minimap2 (pbmm2 align)
+# - sqanti
+# - cpat 
+# Use a base image from a reliable source like Ubuntu
+
+## Generate .sif from the .def file using apptainer : 
+## apptainer build E3999_PacBio_LR_YN_BuildContainer.sif E3999_PacBio_LR_YN_BuildContainer.def
+## To check if the modules are installed correctly (ex pbmm2) 
+##  apptainer exec E3999_PacBio_LR_YN_BuildContainer.sif pbmm2 --version
+
+
+%environment
+    export PATH=/opt/conda/envs/base_env/bin:/opt/conda/condabin:/opt/conda/bin:$PATH
+    export CONDA_DEFAULT_ENV=base_env
+    export SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
+
+%post
+    # Set noninteractive mode for apt
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get update && apt-get install -y \
+        wget \
+        git \
+        curl \
+        bzip2 \
+        ca-certificates \
+        libglib2.0-0 \
+        libxext6 \
+        libsm6 \
+        libxrender1 \
+        gcc \
+        g++ \
+        make \
+        build-essential \
+        zlib1g-dev \
+        libncurses5-dev \
+        libncursesw5-dev \
+        liblzma-dev \
+        python3-dev \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        unzip \
+        default-jre \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+    # Install Miniconda
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+    bash miniconda.sh -b -p /opt/conda
+    rm miniconda.sh
+    export PATH="/opt/conda/bin:$PATH"
+
+    # Initialize conda and activate environment
+    . /opt/conda/etc/profile.d/conda.sh
+    conda init bash
+    conda create -y -n base_env python=3.7
+    conda activate base_env
+
+    # Fix for deprecated sklearn package
+    export SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
+
+    # Install SQANTI3 dependencies
+    conda install -y -c bioconda -c conda-forge \
+        numpy \
+        pandas \
+        matplotlib \
+        seaborn \
+        scipy \
+        pybedtools \
+        pysam \
+        gffutils \
+        h5py \
+        biopython \
+        scikit-learn \
+        tensorflow=2.3 \
+        cython
+
+    # Download and install SQANTI3
+    cd /opt
+    git clone https://github.com/ConesaLab/SQANTI3.git
+    cd SQANTI3
+    git checkout tags/v5.2
+
+    # Install cDNA_Cupcake
+    git clone https://github.com/Magdoll/cDNA_Cupcake.git
+    cd cDNA_Cupcake
+    python setup.py build
+    python setup.py install
+    cd ..
+
+    # Set permissions
+    chmod -R a+rwx /opt/SQANTI3
+
+%labels
+    Author YourName
+    Version SQANTI3_v5.2
+
+%runscript
+    exec "$@"

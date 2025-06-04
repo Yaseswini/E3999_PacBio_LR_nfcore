@@ -1,0 +1,84 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+# Building a container w/ all the scripts #
+# Required packages 
+# - isoseq 
+# - minimap2 (pbmm2 align)
+# - sqanti
+# - cpat 
+# Use a base image from a reliable source like Ubuntu
+
+## Generate .sif from the .def file using apptainer : 
+## apptainer build E3999_PacBio_LR_YN_BuildContainer.sif E3999_PacBio_LR_YN_BuildContainer.def
+## To check if the modules are installed correctly (ex pbmm2) 
+##  apptainer exec E3999_PacBio_LR_YN_BuildContainer.sif pbmm2 --version
+
+%labels
+    Maintainer pacbioaaml
+    Version v1.0
+
+%environment
+    export PATH=/opt/conda/envs/base_env/bin:/opt/conda/condabin:/opt/conda/bin:$PATH
+    export CONDA_DEFAULT_ENV=base_env
+    export SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
+    export PYTHONPATH=$PYTHONPATH:/opt/conda/envs/sqanti_cupcake_env/lib/python3.7/site-packages/
+    export PATH=$PATH:/opt/SQANTI3:/opt/cDNA_Cupcake/sequence/
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y \
+        wget git curl unzip build-essential ca-certificates \
+        libglib2.0-0 libsm6 libxext6 libxrender-dev \
+        zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev \
+        libreadline-dev libffi-dev libsqlite3-dev libbz2-dev
+
+    # Install Miniconda
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p /opt/conda
+    rm /tmp/miniconda.sh
+    /opt/conda/bin/conda init bash
+    export PATH="/opt/conda/bin:$PATH"
+    . /opt/conda/etc/profile.d/conda.sh
+
+    # Create base_env
+    conda create -y -n base_env python=3.7
+    conda activate base_env
+    conda install -y pip numpy scikit-learn cython
+    conda install -y -c bioconda minimap2 samtools isoseq3 pbmm2
+
+    echo "Base environment setup complete."
+
+    # Create sqanti + cDNA_cupcake environment
+    conda create -y -n sqanti_cupcake_env python=3.7
+    conda activate sqanti_cupcake_env
+    conda install -y numpy cython scikit-learn pip biopython==1.78
+
+    # Install SQANTI3
+    cd /opt
+    wget https://github.com/ConesaLab/SQANTI3/archive/refs/tags/v5.2.tar.gz
+    tar -xvf v5.2.tar.gz && rm v5.2.tar.gz
+    mv SQANTI3-5.2 SQANTI3
+    echo "SQANTI3 downloaded."
+
+    # Install cDNA_Cupcake
+    cd /opt
+    git clone https://github.com/Magdoll/cDNA_Cupcake.git
+    cd cDNA_Cupcake
+    sed -i 's/sklearn/scikit-learn/' setup.py || true
+    /opt/conda/envs/sqanti_cupcake_env/bin/python setup.py build
+    /opt/conda/envs/sqanti_cupcake_env/bin/python setup.py install
+    echo "cDNA_Cupcake installed."
+
+    # Check cDNA_Cupcake module
+    /opt/conda/envs/sqanti_cupcake_env/bin/python -c "from cupcake.sequence import sam_to_gff3; print('cDNA_Cupcake import successful:', sam_to_gff3.__file__)" || {
+        echo "Error: cDNA_Cupcake installation failed."
+        exit 1
+    }
+
+    echo "SQANTI3 and cDNA_Cupcake environment setup complete."
+
+%runscript
+    echo "Container for pacbioaaml pipeline with SQANTI3, IsoSeq3, and cDNA_Cupcake"
+    exec "$@"

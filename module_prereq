@@ -1,0 +1,10 @@
+https://www.pacb.com/wp-content/uploads/Iso-Seq-library-preparation-using-SMRTbell-prep-kit-3.0-training.pdf
+
+
+Pre-req
+
+module load nextflow 
+module load apptainer 
+module load samtools
+
+apptainer build ./containers/E3999_PacBio_LR_YN_BuildContainer.sif ./containers/E3999_PacBio_LR_YN_BuildContainer.def

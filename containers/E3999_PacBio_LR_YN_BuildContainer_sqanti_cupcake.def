@@ -1,0 +1,128 @@
+Bootstrap: docker
+From: continuumio/miniconda3:latest
+
+%post
+    # Base setup
+    export PATH=/opt/conda/bin:$PATH
+
+    # OS dependencies
+    apt-get update && apt-get install -y build-essential wget git unzip curl bzip2
+
+    # Install Miniconda (if needed)
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+    bash miniconda.sh -b -u -p /opt/conda
+    export PATH="/opt/conda/bin:$PATH"
+    /opt/conda/bin/conda init
+
+    # Enable conda in the shell
+    . /opt/conda/etc/profile.d/conda.sh
+
+    # Create and activate environment
+    conda create -y -n SQANTI3.env python=3.10.14
+    conda activate SQANTI3.env
+
+
+    # Add channels in correct order
+    conda config --add channels defaults
+    conda config --add channels bioconda
+    conda config --add channels conda-forge
+
+    # Fix sklearn legacy flag (some packages depend on it)
+    export SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
+
+    # Install core dependencies via conda for binary compatibility
+    conda install -y \
+        gffread \
+        numpy=1.23.5 \
+        pandas=1.5.3 \
+        pyarrow=11.0.0 \
+        cython \
+        scikit-learn \
+        matplotlib \
+        scipy \
+        pybedtools \
+        bedtools
+
+    # Now pip install the rest (safe packages)
+    pip install \
+        atomicwrites \
+        chardet \
+        cloudpickle \
+        cookiecutter \
+        diff-match-patch \
+        intervaltree \
+        ipython \
+        jellyfish \
+        jsonschema \
+        keyring \
+        numpydoc \
+        paramiko \
+        parso \
+        pexpect \
+        pickleshare \
+        psutil \
+        pygments \
+        pylint \
+        pylint-venv \
+        pyls-spyder \
+        python-lsp-server \
+        pyzmq \
+        qdarkstyle \
+        qstylizer \
+        qtawesome \
+        qtconsole \
+        qtpy \
+        rtree \
+        setuptools \
+        sphinx \
+        spyder-kernels \
+        sympy \
+        textdistance \
+        three-merge \
+        watchdog
+
+    # Download and install SQANTI3 v5.3.6
+    wget https://github.com/ConesaLab/SQANTI3/releases/download/v5.3.6/SQANTI3_v5.3.6.zip
+    mkdir -p /opt/SQANTI3
+    unzip SQANTI3_v5.3.6.zip -d /opt/SQANTI3
+
+    # Download and set executable permission on gtfToGenePred
+    wget http://hgdownload.cse.ucsc.edu/admin/exe/linux.x86_64/gtfToGenePred -P /opt/SQANTI3/SQANTI3_v5.3.6/utilities/
+    chmod +x /opt/SQANTI3/SQANTI3_v5.3.6/utilities/gtfToGenePred
+
+    # Install cDNA_Cupcake
+    git clone https://github.com/Magdoll/cDNA_Cupcake.git
+    cd cDNA_Cupcake
+
+    sed -i 's/ctypedef np.int_t DTYPE_t/ctypedef np.int32_t DTYPE_t/' cupcake/tofu/branch/c_branch.pyx
+    sed -i 's|print "alt. junction found at", i|print("alt. junction found at", i)|' cupcake/tofu/branch/c_branch.pyx
+    sed -i 's|print "traversing self: {0}={1}".format(self.start, self.end)|print("traversing self: {0}={1}".format(self.start, self.end))|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i 's|print "found! {0}={1}".format(start, end)|print("found! {0}={1}".format(start, end))|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i 's|print "replacing current node with R node {0}-{1}".format(croot.start, croot.end)|print("replacing current node with R node {0}-{1}".format(croot.start, croot.end))|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i 's|print "replacing current node info with #1 {0}-{1}".format(pred.start, pred.end)|print("replacing current node info with #1 {0}-{1}".format(pred.start, pred.end))|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i 's|print "right is empty left is not"|print("right is empty left is not")|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i 's|print "left is empty right is not"|print("left is empty right is not")|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i '1s;^;# cython: language_level=3\n;' cupcake/tofu/branch/c_branch.pyx
+    sed -i '1s;^;# cython: language_level=3\n;' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i 's|print "replacing current node info with #2 {0}-{1}".format(pred.start, pred.end)|print("replacing current node info with #2 {0}-{1}".format(pred.start, pred.end))|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i 's|print "subtree is empty"|print("subtree is empty")|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i 's|print "FOR DEBUGGING ONLY"|print("FOR DEBUGGING ONLY")|' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i -E 's|print "([^"]*)"|print("\1")|g' cupcake/tofu/branch/intersection_unique.pyx
+    sed -i -E 's|print "([^"]*)"\.format\(([^)]*)\)|print("\1".format(\2))|g' cupcake/tofu/branch/intersection_unique.pyx
+
+    python setup.py build_ext --inplace
+    python setup.py install
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export CONDA_DEFAULT_ENV=SQANTI3.env
+    source activate SQANTI3.env
+
+%runscript
+    exec "$@"
+
+%test
+    python -c "import cupcake; print(cupcake.__version__)"
+    pip list | grep cupcake
+    which collapse_isoforms_by_sam.py
+    collapse_isoforms_by_sam.py --help

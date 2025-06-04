@@ -1,0 +1,198 @@
+nextflow.enable.dsl=2
+
+include { GENERATE_REFERENCE_TABLES_AND_DB } from './modules/local/01_generate_reference_tables_and_db/main.nf';
+include { PRINT_SAMPLE_BAM_COUNT } from './modules/local/02_sample_bam_count/main.nf';
+include { MERGE_BAMS }             from './modules/local/03_merge_bams/main.nf';
+include { CHECK_AND_MOVE_BAM }     from './modules/local/04_check_and_move_bam/main.nf';
+include { ISOSEQ_CLUSTER }         from './modules/local/05_isoseq_cluster/main.nf';
+include { PBMM2_ALIGN }            from './modules/local/06_align/main.nf';
+include { ISOSEQ_COLLAPSE }        from './modules/local/07_isoseq_collapse/main.nf';
+include { SQANTI_QC_AND_FILTER }   from './modules/local/08_sqanti_qc_filter/main.nf';
+include { CPAT_PREDICTION }        from './modules/local/09_cpat/main.nf';
+
+workflow {
+
+    // Parsing metadata file
+    Channel
+        .fromPath(params.input_metadata)
+        .flatMap { file ->
+            file.text
+                .split('\n')
+                .drop(1)
+                .findAll { it.trim() }
+                .collect { line ->
+                    def (bam, sample, condition) = line.trim().split(',').collect { it.trim() }
+                    tuple(sample, condition, "${params.base_bam_dir}/${bam}")
+                }
+        }
+        .map { sample, condition, bam_path ->
+            tuple(sample, condition, file(bam_path))  // Wrap the path in the file() function
+        }
+        .filter { sample, condition, bam_file ->
+            if (!bam_file.exists()) {
+                log.warn "Missing file: ${bam_file}"
+                return false
+            }
+            return true
+        }
+        .groupTuple()
+        .set { grouped_bams }
+
+    // Reference genome inputs
+    def reference_gtf   = file("${params.reference_genomedir}/gencode.v42.annotation.gtf")
+    def reference_genome_fasta = file("${params.reference_genomedir}/GRCh38.p13.genome.fa")
+    def reference_pc_fasta = file("${params.reference_genomedir}/gencode.v42.pc_transcripts.fa")
+    def parsed_reference_dir   = file("${workflow.projectDir}/reference_genome/reference_db_for_analysis")
+
+    // Generate reference tables and clustering database
+    GENERATE_REFERENCE_TABLES_AND_DB(
+        tuple(reference_gtf, reference_pc_fasta, parsed_reference_dir)
+    )
+    .reference_outputs
+    .view { ref_output -> 
+        "Reference files created in: ${ref_output}" 
+    }
+    .set { reference_outputs }
+
+    PRINT_SAMPLE_BAM_COUNT(grouped_bams)
+        .set { sample_bam_count_files }
+
+    // Process merged bams
+        grouped_bams
+            .filter { sample, condition, bams -> bams.size() > 1 }
+            .map { sample, condition, bams -> tuple(sample, condition, bams) }
+            .set { to_merge }
+
+        MERGE_BAMS(to_merge)
+            .set { merged_bams }
+
+        // Process original bams (only one per sample)
+        grouped_bams
+            .filter { sample, condition, bams -> bams.size() == 1 }
+            .map { sample, condition, bams -> tuple(sample, condition, bams[0]) }
+            .set { original_bams }
+
+        // Combine merged and original
+        merged_bams.mix(original_bams)
+            .set { all_bams }
+
+        // Move the bams to their sample specific folders 
+        CHECK_AND_MOVE_BAM(all_bams)
+            .view { "Moved: ${it}" }
+
+    // --- CLUSTER USING ISOSEQ --- //
+
+        ISOSEQ_CLUSTER(
+            all_bams.map { sample_id, condition, bam_file ->
+                def output_path = "${workflow.projectDir}/data/${sample_id}"
+                tuple(sample_id, condition, bam_file, output_path)
+            }
+        )
+        .view { sample_id, condition, clustered_bam ->
+            "Clustering using IsoSeq for sample ${sample_id} (${condition}) completed. Output: ${clustered_bam}"
+        }
+        .set { isoseq_bam_files }
+
+    // --- PBMM2 Alignment ---
+
+    isoseq_bam_files
+        .map { sample_id, condition, clustered_bam ->
+            def output_dir = file("data/${sample_id}")
+            tuple(sample_id, condition, clustered_bam, reference_genome_fasta, output_dir)
+        }
+        .set { pbmm2_input }
+
+    PBMM2_ALIGN(pbmm2_input)
+        .view { sample_id, condition, bam, bai ->
+            "Alignment done for ${sample_id} (${condition}): ${bam}"
+        }
+        .set { aligned_bams }
+
+    // --- COLLAPSE REDUNDANT READS --- //
+
+    aligned_bams
+        .map { sample_id, condition, bam, bai ->
+            def output_dir = file("${baseDir}/data/${sample_id}")
+            tuple(sample_id, condition, bam, output_dir)
+        }
+        .set { isoseq_collapse_input }
+
+
+    ISOSEQ_COLLAPSE(isoseq_collapse_input)
+        .view { sample_id, condition, gff, abundance ->
+            "IsoSeq collapse done for ${sample_id} (${condition}):\nGFF: ${gff}\nAbundance: ${abundance}"
+        }
+        .set { collapsed_gff_files }
+
+
+    // -- SQANTI QC & FILTER -- //
+       collapsed_gff_files
+        .map { sample_id, condition, collapsed_gff, collapsed_abundance ->
+            // Define the output directory and prefix
+            def output_dir = file("${baseDir}/data/${sample_id}")
+            def output_prefix  = "${sample_id}_sqanti"
+
+            // Return the tuple that matches the input structure expected by the process
+            tuple(
+                sample_id,
+                condition,
+                collapsed_gff,
+                reference_gtf,
+                reference_genome_fasta,
+                parsed_reference_dir,
+                collapsed_abundance,
+                output_prefix,
+                output_dir
+            )
+        }
+        .set { sqanti_qc_inputs }
+
+    // Perform QC and filter transcripts using SQANTI
+    SQANTI_QC_AND_FILTER(sqanti_qc_inputs)
+        .view { row -> "SQANTI QC and filter completed for sample ${row[0]}. Outputs in: ${row[6]}" }
+        .set { sqanti_qc_outputs }
+
+
+    //CPAT 
+        // Prepare inputs for CPAT prediction
+        sqanti_qc_outputs
+            .map { sample_id, condition, sqanti_files, output_prefix ->
+
+                def filtered_fasta = sqanti_files.find { it.name == "filtered_${output_prefix}_corrected.fasta" }
+                def output_dir = file("${baseDir}/data/${sample_id}")
+
+                tuple(
+                    sample_id,
+                    condition,
+                    filtered_fasta,
+                    output_dir
+                )
+            }
+            .set { cpat_inputs }
+
+        // Perform CPAT prediction for each sample
+        CPAT_PREDICTION(cpat_inputs)
+            .view { row -> "CPAT prediction completed for sample ${row[0]}. Outputs in: ${row[2]}" }
+            .set { cpat_outputs }
+}  
+
+    // -- six frame translation -- //
+
+    // -- transcriptome summary -- //
+
+    // -- orf calling -- // 
+
+    // -- refine orf database -- //
+
+    // -- make cds gtf -- // 
+
+    // -- rename cds to exon -- // 
+
+    // -- sqanti protein -- // 
+
+    // -- 5p utr -- // 
+
+    // 
+
+
+

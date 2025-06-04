@@ -1,0 +1,2 @@
+2025-04-15 20:13:05	-	wise_darwin	-	9b3e569e5500dfa37e35b40e86dae00d	90047a0b-39ab-44a0-a5e2-4fb21ff73f0d	nextflow run . --input ./data/sample_metadata.csv
+2025-04-15 20:13:24	-	nostalgic_jepsen	-	9b3e569e5500dfa37e35b40e86dae00d	cae6bd28-02b9-45c4-84f0-63dbddb6d910	nextflow run main.nf --input ./data/sample_metadata.csv
